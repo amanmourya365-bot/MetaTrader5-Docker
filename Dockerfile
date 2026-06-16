@@ -1,35 +1,10 @@
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV WINEPREFIX=/root/.wine
-ENV WINEDEBUG=-all
+WORKDIR /app
 
-RUN dpkg --add-architecture i386 && \
-    apt-get update && apt-get install -y \
-        wine64 wine32 \
-        python3 python3-pip curl wget \
-        xvfb x11vnc openbox novnc websockify \
-        net-tools iproute2 supervisor procps \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN Xvfb :99 -screen 0 1024x768x24 & \
-    sleep 3 && \
-    echo "=== Init Wine ===" && \
-    DISPLAY=:99 wineboot --init && \
-    sleep 15 && \
-    echo "=== Download MT5 ===" && \
-    curl -L -o /tmp/mt5setup.exe "https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe" && \
-    echo "=== Install MT5 ===" && \
-    DISPLAY=:99 wine /tmp/mt5setup.exe /auto && \
-    sleep 120 && \
-    echo "=== Verify ===" && \
-    find /root/.wine -name "terminal64.exe" 2>/dev/null && \
-    rm -f /tmp/mt5setup.exe && \
-    pkill Xvfb || true
+COPY bot.py .
 
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-EXPOSE 8080
-
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["python", "-u", "bot.py"]
