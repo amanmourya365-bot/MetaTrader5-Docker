@@ -1,38 +1,31 @@
-FROM debian:bookworm-slim
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV WINEARCH=win64
 ENV WINEPREFIX=/root/.wine
 ENV WINEDEBUG=-all
+ENV DISPLAY=:99
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip wget curl gnupg2 ca-certificates \
+# Install Wine from Ubuntu repos (more stable than WineHQ on builders)
+RUN apt-get update && apt-get install -y \
+        wine wine64 wine32 \
+        python3 python3-pip curl wget \
         xvfb x11vnc openbox novnc websockify \
         net-tools iproute2 supervisor procps \
-    && mkdir -pm755 /etc/apt/keyrings \
-    && wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
-    && wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources \
-    && dpkg --add-architecture i386 \
-    && apt-get update \
-    && apt-get install --install-recommends -y winehq-stable \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install MT5 during build - win64 arch
+# Install MT5 during build
 RUN Xvfb :99 -screen 0 1024x768x24 & \
-    export DISPLAY=:99 && \
     sleep 3 && \
-    echo "=== Initializing Wine64 ===" && \
-    WINEARCH=win64 WINEPREFIX=/root/.wine wineboot --init && \
+    echo "=== Init Wine ===" && \
+    DISPLAY=:99 wineboot --init && \
     sleep 15 && \
-    echo "=== Downloading MT5 ===" && \
-    curl -L -o /tmp/mt5setup.exe https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe && \
-    ls -la /tmp/mt5setup.exe && \
-    echo "=== Installing MT5 ===" && \
-    DISPLAY=:99 WINEARCH=win64 WINEPREFIX=/root/.wine wine /tmp/mt5setup.exe /auto && \
-    echo "=== Waiting 120s for MT5 ===" && \
+    echo "=== Download MT5 ===" && \
+    curl -L -o /tmp/mt5setup.exe "https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe" && \
+    echo "=== Install MT5 ===" && \
+    DISPLAY=:99 wine /tmp/mt5setup.exe /auto && \
     sleep 120 && \
-    echo "=== Verifying ===" && \
+    echo "=== Verify ===" && \
     find /root/.wine -name "terminal64.exe" 2>/dev/null && \
     rm -f /tmp/mt5setup.exe && \
     pkill Xvfb || true
